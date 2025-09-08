@@ -1,0 +1,16 @@
+﻿Pauschale_Code;Title;Priority;TaxPoints;NOT_WITH;Allow_Addons;Max_Per_Day;Location_In;Age_Min;Age_Max;Allowed_Hours_Start;Allowed_Hours_End;Dignity;Notes
+C00.10A;Stereotaktische Radiochirurgie: Gamma‑Knife / Bestrahlung v. Hirnmetastasen mit Anästhesie;300;7537.84;C00.10B;;1;Ambulant;;;;;"0016; 0100; 0600";Match if (Gamma‑Knife C00.BF.0030) OR ((C00.BF.0010 AND C00.BF.0020) AND (any WA.10.0010..0050))
+C00.10B;Stereotaktische Radiochirurgie: Bestrahlung v. Hirnmetastasen / Missbildungen (ohne Anästhesie);200;5671.29;C00.10A;;1;Ambulant;;;;;"0016; 0600";Match if (C00.BF.0010) OR (C00.BF.0020)
+C00.10C;Stereotaktische Radiotherapie: Bestrahlung mit Anfertigung v. Gewebeausgleichsfiltern;150;3422.6;;;1;Ambulant;;;;;0016;Requires ANY of table C00.70_10 AND ANY of table C00.70_3
+C00.10D;Stereotaktische Radiotherapie: Bestrahlung mit Anästhesie d. Anästhesist/in oder mit Bestrahlungsplanung & -simulation;140;2995.85;;;1;Ambulant;;;;;"0016; 0100";Match if (ANY C00.70_10 AND ANY ANAST) OR (ANY C00.70_10 AND ANY C00.70_0 AND ANY C00.70_2)
+C00.10E;Stereotaktische Radiotherapie: Bestrahlung mit Bestrahlungsplanung;130;2266.79;;;1;Ambulant;;;;;0016;ANY C00.70_10 AND ANY C00.70_0
+C00.10F;Stereotaktische Radiotherapie: Bestrahlung mit Bestrahlungssimulation;120;1843.55;;;1;Ambulant;;;;;0016;ANY C00.70_10 AND ANY C00.70_2
+C00.10G;Stereotaktische Radiotherapie: Sonstige Bestrahlung;110;822.65;;;1;Ambulant;;;;;0016;Matches if (ANY C00.70_10 AND ANY C00.70_1) OR (ANY C00.70_10).
+C00.40A;Hochvolttherapie mit Bestrahlungsplanung u. -simulation oder mit Anfertigung v. Gewebeausgleichsfiltern;100;2608.15;;;1;Ambulant;;;;;"0016; 9957";(ANY C00.70_40 AND ANY C00.70_3) OR (ANY C00.70_40 AND ANY C00.70_0 AND ANY C00.70_2)
+C00.40B;Hochvolttherapie mit Bestrahlungsplanung oder -simulation;90;1326.02;;;1;Ambulant;;;;;"0016; 9957";(ANY C00.70_40 AND ANY C00.70_0) OR (ANY C00.70_40 AND ANY C00.70_2)
+C00.40C;Hochvolttherapie mit Planungs-CT;80;573.18;;;1;Ambulant;;;;;0016;ANY C00.70_40 AND ANY C00.70_1
+C00.40D;Sonstige Hochvolttherapie;70;306.7;;;1;Ambulant;;;;;0016;ANY C00.70_40
+C00.61A;Anfertigung von Gewebeausgleichsfiltern;60;1928.87;;;1;Ambulant;;;;;0016;ANY C00.70_3
+C00.61B;Bestrahlungsplanung und -simulation;50;1366.86;;;1;Ambulant;;;;;0016;ANY C00.70_0 AND ANY C00.70_2
+C00.61C;Bestrahlungsplanung oder -simulation;40;648.77;;;1;Ambulant;;;;;0016;ANY C00.70_0 OR ANY C00.70_2
+C00.61D;Bestrahlungsplanungs-CT oder sonstige Fixations-/Behandlungshilfen;30;166.04;;;1;Ambulant;;;;;0016;ANY C00.70_1 OR ANY C00.71
