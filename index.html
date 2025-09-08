@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pauschalen-Simulator – Sprachauswahl</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0B1020;
+      color: white;
+    }
+    .btn {
+      display: inline-block;
+      padding: 1rem 2rem;
+      border-radius: 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    }
+    .btn-blue {
+      background: linear-gradient(90deg, #0B5FFF, #66E3C4);
+      color: white;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center h-screen">
+  <div class="text-center">
+    <h1 class="text-3xl sm:text-4xl font-bold mb-8 text-[#0B5FFF]">
+      Pauschalen-Simulator – Sprachauswahl
+    </h1>
+    <div class="space-x-6">
+      <a href="index_de.html" class="btn btn-blue">Deutsch</a>
+      <a href="index_fr.html" class="btn btn-blue">Français</a>
+    </div>
+  </div>
+</body>
+</html>
+
