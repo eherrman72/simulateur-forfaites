@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulateur de forfaits ambulatoires</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{
+      --brand-blue:#0B5FFF; --brand-mint:#66E3C4;
+      --bg-900:#0B1020; --bg-800:#121a2e; --bg-700:#19223a;
+      --text-400:#9CA3AF; --text-300:#CBD5E1;
+    }
+    body{ font-family:'Inter',sans-serif; }
+    .input-group{ transition:all .3s ease; }
+    .result-card{ transition:transform .3s ease, box-shadow .3s ease; }
+    .result-card:hover{ transform:translateY(-5px); box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05); }
+    .brand-muted{ color:var(--text-400)!important; }
+    .brand-focus:focus{ outline:none; box-shadow:0 0 0 3px color-mix(in srgb, var(--brand-blue) 40%, transparent); border-color:var(--brand-blue); }
+    .plan-checkboxes label{
+      cursor:pointer; padding:2px 8px; border-radius:6px; font-size:.75rem; transition:all .2s;
+      border:1px solid color-mix(in srgb, var(--brand-blue) 35%, var(--bg-700));
+      background-color:color-mix(in srgb, var(--bg-700) 85%, black);
+    }
+    .plan-checkboxes input:checked + label{
+      background: linear-gradient(90deg, var(--brand-blue), var(--brand-mint));
+      border-color:transparent; color:white;
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-[color:var(--bg-900)] text-white p-4 sm:p-6 md:p-8">
+  <div class="max-w-7xl mx-auto">
+    <!-- EN-TÊTE -->
+    <header class="mb-8">
+      <div class="flex justify-center">
+        <div class="inline-flex items-center bg-white/95 rounded-xl px-4 sm:px-5 py-3 shadow">
+          <img
+            src="file:///C:/Users/Herrmann/PycharmProjects/Tarmed_Tardoc_Simulation/Tabellen%20Tool%20Berechnung%20Pauschalen/Logo_ROZ_text_cmyk.jpg"
+            alt="Centre de radio-oncologie Bienne–Seeland–Jura bernois"
+            class="max-h-20 sm:max-h-24 object-contain"
+          />
+        </div>
+      </div>
+      <div class="text-center mt-6">
+        <h1 class="text-3xl sm:text-4xl font-bold text-[color:var(--brand-blue)]">Simulateur de forfaits ambulatoires</h1>
+        <p class="text-lg brand-muted mt-2">Calculez les revenus pour des scénarios complexes de radiothérapie.</p>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- ENTRÉES -->
+      <div class="lg:col-span-1 bg-[color:var(--bg-800)] p-6 rounded-2xl shadow-lg">
+        <form id="scenario-form">
+          <h2 class="text-2xl font-semibold mb-6 border-b-2 border-[color:var(--brand-mint)] pb-2">Paramètres du scénario</h2>
+
+          <!-- Bascule : phases manuelles -->
+          <div class="mb-4">
+            <label class="inline-flex items-center gap-3">
+              <input id="manual-phases" type="checkbox"
+                     class="h-4 w-4 rounded border-[color:var(--bg-700)] bg-[color:var(--bg-700)] focus:ring-2 focus:ring-[color:var(--brand-blue)]">
+              <span class="text-sm">Contrôler manuellement les phases</span>
+            </label>
+            <p class="brand-muted text-sm mt-1">
+              Activé → définir le nombre de fractions, la <strong>technique</strong> (VMAT/Standard) et la <strong>SRT</strong> pour chaque phase.  
+              Désactivé → phases déduites automatiquement des volumes (CT/Plan/Sim).
+            </p>
+          </div>
+
+          <div class="space-y-4 mb-6">
+            <!-- A) Éditeur de phases (manuel) -->
+            <div id="phasen-editor" class="hidden">
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold mb-2 text-[color:var(--brand-mint)]">Plan de phases (manuel)</h3>
+                <button type="button" id="import-phases-from-volumes"
+                        class="text-xs px-2 py-1 rounded bg-[color:var(--bg-700)] hover:bg-[color:var(--bg-800)]">
+                  Importer les phases depuis les volumes
+                </button>
+              </div>
+
+              <div class="grid grid-cols-12 gap-2 text-xs mb-2 font-bold text-[color:var(--text-300)] px-1">
+                <div class="col-span-4">Phase</div>
+                <div class="col-span-3 text-center">Fractions</div>
+                <div class="col-span-3 text-center">Technique</div>
+                <div class="col-span-2 text-center">SRT</div>
+              </div>
+
+              <div id="phasen-container" class="space-y-3"></div>
+
+              <div class="flex gap-2 pt-2">
+                <button type="button" id="add-phase"
+                        class="text-sm w-full bg-[color:var(--bg-700)] hover:bg-[color:var(--bg-800)] text-white font-semibold py-2 px-3 rounded-md transition">Ajouter une phase</button>
+                <button type="button" id="remove-phase"
+                        class="text-sm w-full bg-red-800 hover:bg-red-900 text-white font-semibold py-2 px-3 rounded-md transition">Supprimer la dernière</button>
+              </div>
+              <hr class="border-[color:var(--bg-700)] my-4">
+            </div>
+
+            <!-- B) Assistant de volumes -->
+            <div class="bg-[color:var(--bg-700)] p-4 rounded-lg">
+              <h3 class="text-lg font-semibold mb-2 text-[color:var(--brand-mint)]">Assistant de volumes</h3>
+
+              <div class="grid grid-cols-12 gap-2 text-xs mb-2 font-bold text-[color:var(--text-300)] px-1">
+                <div class="col-span-3">Volume</div>
+                <div class="col-span-2 text-center">Jour début</div>
+                <div class="col-span-2 text-center">Nb de Fx</div>
+                <div class="col-span-5 text-center">Planification & options</div>
+              </div>
+
+              <div id="assistant-volumes-container" class="space-y-2 text-sm"></div>
+
+              <div class="flex gap-2 pt-2">
+                <button type="button" id="add-assistant-volumen"
+                        class="text-sm w-full bg-[color:var(--bg-700)] hover:bg-[color:var(--bg-800)] text-white font-semibold py-2 px-3 rounded-md transition">Ajouter un volume</button>
+                <button type="button" id="remove-assistant-volumen"
+                        class="text-sm w-full bg-red-800 hover:bg-red-900 text-white font-semibold py-2 px-3 rounded-md transition">Supprimer le dernier</button>
+              </div>
+
+              <button type="button" id="generate-plan"
+                      class="w-full mt-3 text-white font-semibold py-2 px-3 rounded-md transition bg-gradient-to-r from-[color:var(--brand-blue)] to-[color:var(--brand-mint)]">
+                Générer le plan détaillé & calculer
+              </button>
+            </div>
+          </div>
+
+          <!-- Technique (par défaut) & Affinage -->
+          <h3 class="text-xl font-semibold mb-4 border-b border-[color:var(--bg-700)] pb-2">Technique & affinage</h3>
+          <div class="space-y-3 mb-6">
+            <div>
+              <label class="block text-sm font-medium text-[color:var(--text-300)]">Technique par défaut (pour phases auto)</label>
+              <select id="technik"
+                      class="mt-1 block w-full bg-[color:var(--bg-700)] border border-[color:var(--bg-700)] rounded-md shadow-sm brand-focus text-white p-2">
+                <option value="VMAT">VMAT / Dynamique</option>
+                <option value="STANDARD">Haute tension standard</option>
+              </select>
+            </div>
+
+            <div class="relative flex items-start">
+              <div class="flex items-center h-5">
+                <input id="prefer-srt" type="checkbox" checked
+                       class="h-4 w-4 rounded border-[color:var(--bg-700)] bg-[color:var(--bg-700)] focus:ring-2 focus:ring-[color:var(--brand-blue)]">
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="prefer-srt" class="font-medium text-[color:var(--text-300)]">Privilégier les forfaits SRT</label>
+                <p class="brand-muted">Augmente la priorité lorsque des codes SRT (BE.0010/BE.0020) sont présents.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8">
+            <button type="submit"
+                    class="w-full text-white font-bold py-3 px-4 rounded-lg shadow-lg transform hover:scale-105 transition
+                           bg-gradient-to-r from-[color:var(--brand-blue)] to-[color:var(--brand-mint)]">
+              Calculer
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- RÉSULTATS -->
+      <div id="results-container" class="lg:col-span-2 hidden">
+        <div class="bg-[color:var(--bg-800)] p-6 rounded-2xl shadow-lg">
+          <h2 class="text-2xl font-semibold mb-6 border-b-2 border-[color:var(--brand-mint)] pb-2">Résultat de la simulation</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="result-card bg-[color:var(--bg-700)] p-4 rounded-lg text-center">
+              <h4 class="text-sm font-medium brand-muted">Revenu total</h4>
+              <p id="total-revenue" class="text-3xl font-bold text-[color:var(--brand-blue)]">0.00 CHF</p>
+            </div>
+            <div class="result-card bg-[color:var(--bg-700)] p-4 rounded-lg text-center">
+              <h4 class="text-sm font-medium brand-muted">Nombre total de fractions</h4>
+              <p id="total-fraktionen" class="text-3xl font-bold text-white">0</p>
+            </div>
+          </div>
+
+          <div class="mb-6">
+            <h3 class="text-xl font-semibold mb-2">Répartition par forfaits</h3>
+            <div id="pauschalen-summary" class="text-sm space-y-1"></div>
+          </div>
+
+          <div>
+            <h3 class="text-xl font-semibold mb-2">Journal quotidien</h3>
+            <div class="h-96 overflow-y-auto bg-[color:var(--bg-900)] rounded-lg p-3 border border-[color:var(--bg-700)]">
+              <table class="min-w-full text-sm">
+                <thead class="sticky top-0 bg-[color:var(--bg-900)]">
+                  <tr>
+                    <th class="text-left p-2">Jour</th>
+                    <th class="text-left p-2">Forfait</th>
+                    <th class="text-right p-2">Montant (CHF)</th>
+                    <th class="text-left p-2">Justification</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-log"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ======= Masterdata (inchangé côté logique) ======= */
+const pauschalenMaster = [
+  { code: 'C00.10A', title: 'Radiochirurgie stéréotaxique : Gamma-Knife / métastases cérébrales avec anesthésie', priority: 300, chf: 7537.84 },
+  { code: 'C00.10B', title: 'Radiochirurgie stéréotaxique : métastases cérébrales / malformations (sans anesthésie)', priority: 200, chf: 5671.29 },
+  { code: 'C00.10C', title: 'Radiothérapie stéréotaxique : irradiation avec filtres compensateurs tissulaires', priority: 150, chf: 3422.60 },
+  { code: 'C00.10D', title: 'Radiothérapie stéréotaxique : irradiation avec anesthésie ou avec planification & simulation', priority: 140, chf: 2995.85 },
+  { code: 'C00.10E', title: 'Radiothérapie stéréotaxique : irradiation avec planification d’irradiation', priority: 130, chf: 2266.79 },
+  { code: 'C00.10F', title: 'Radiothérapie stéréotaxique : irradiation avec simulation d’irradiation', priority: 120, chf: 1843.55 },
+  { code: 'C00.10G', title: 'Radiothérapie stéréotaxique : autre irradiation', priority: 110, chf: 822.65 },
+  { code: 'C00.40A', title: 'Thérapie à haute tension avec planification/simulation ou filtres compensateurs tissulaires', priority: 100, chf: 2608.15 },
+  { code: 'C00.40B', title: 'Thérapie à haute tension avec planification ou simulation', priority: 90, chf: 1326.02 },
+  { code: 'C00.40C', title: 'Thérapie à haute tension avec CT de planification', priority: 80, chf: 573.18 },
+  { code: 'C00.40D', title: 'Autre thérapie à haute tension', priority: 70, chf: 306.70 },
+  { code: 'C00.61A', title: 'Fabrication de filtres compensateurs tissulaires', priority: 60, chf: 1928.87 },
+  { code: 'C00.61B', title: 'Planification et simulation d’irradiation', priority: 50, chf: 1366.86 },
+  { code: 'C00.61C', title: 'Planification ou simulation d’irradiation', priority: 40, chf: 648.77 },
+  { code: 'C00.61D', title: 'CT de planification ou autres aides de fixation/de traitement', priority: 30, chf: 166.04 }
+];
+
+const tardocTables = {
+  'C00.70_13': ['C00.BF.0030'],
+  'C00.70_11': ['C00.BF.0010'],
+  'C00.70_12': ['C00.BF.0020'],
+  'ANAST': ['WA.10.0010','WA.10.0020','WA.10.0030','WA.10.0040','WA.10.0050'],
+  'C00.70_10': ['C00.BE.0010','C00.BE.0020'],
+  'C00.70_3':  ['C00.BA.0110','C00.BA.0120'],
+  'C00.70_0':  ['C00.BA.0070','C00.BA.0080','C00.BA.0100'],
+  'C00.70_2':  ['C00.BA.0130','C00.BB.0010'],
+  'C00.70_1':  ['C00.BA.0010','C00.BA.0030'],
+  'C00.70_40': [
+    'C00.BB.0020',
+    'C00.BD.0010','C00.BD.0050','C00.BD.0060','C00.BD.0080','C00.BD.0090','C00.BD.0110',
+    'C00.BB.0040','C00.BB.0050','C00.BB.0060',
+    'C00.BB.0080'
+  ],
+  'C00.71':    ['C00.BA.0040','C00.BA.0050','C00.BA.0060','C00.BA.0110','C00.BA.0120']
+};
+
+/* ======= UI dynamique (identique, textes FR) ======= */
+const phasenEditor = document.getElementById('phasen-editor');
+const manualPhasesToggle = document.getElementById('manual-phases');
+
+const phasenContainer = document.getElementById('phasen-container');
+let phaseCount = 0;
+
+const assistantVolumenContainer = document.getElementById('assistant-volumes-container');
+let assistantVolumenCount = 0;
+
+/* Phases : technique & SRT par phase */
+function addPhaseRow(fx = 10, technik = (document.getElementById('technik').value || 'VMAT'), srt = false){
+  phaseCount++;
+  const pid = `phase-${phaseCount}`;
+  const row = document.createElement('div');
+  row.className = 'grid grid-cols-12 gap-2 items-center';
+  row.innerHTML = `
+    <div class="col-span-4 font-medium text-[color:var(--text-300)]">Phase ${phaseCount}</div>
+    <div class="col-span-3">
+      <input type="number" id="${pid}-fx" name="phase-fractions" value="${fx}"
+        class="block w-full bg-[color:var(--bg-700)] border border-[color:var(--bg-700)] rounded-md shadow-sm p-2 text-white brand-focus">
+    </div>
+    <div class="col-span-3">
+      <select id="${pid}-tech" name="phase-tech"
+        class="block w-full bg-[color:var(--bg-700)] border border-[color:var(--bg-700)] rounded-md shadow-sm p-2 text-white brand-focus">
+        <option value="VMAT" ${technik==='VMAT'?'selected':''}>VMAT / Dynamique</option>
+        <option value="STANDARD" ${technik==='STANDARD'?'selected':''}>Haute tension standard</option>
+      </select>
+    </div>
+    <div class="col-span-2 flex items-center justify-center">
+      <input type="checkbox" id="${pid}-srt" name="phase-srt" ${srt?'checked':''}
+        class="h-4 w-4 rounded border-[color:var(--bg-700)] bg-[color:var(--bg-700)] focus:ring-2 focus:ring-[color:var(--brand-blue)]">
+    </div>`;
+  phasenContainer.appendChild(row);
+}
+
+document.getElementById('add-phase')?.addEventListener('click', ()=>{ addPhaseRow(); runSimulation(); });
+document.getElementById('remove-phase')?.addEventListener('click', ()=>{
+  if(phaseCount>0){ phasenContainer.removeChild(phasenContainer.lastChild); phaseCount--; runSimulation(); }
+});
+
+manualPhasesToggle.addEventListener('change', (e)=>{
+  const on = e.target.checked;
+  phasenEditor.classList.toggle('hidden', !on);
+  runSimulation();
+});
+
+document.getElementById('import-phases-from-volumes')?.addEventListener('click', ()=>{
+  const auto = derivePhasesFromVolumes();
+  phasenContainer.innerHTML = ''; phaseCount = 0;
+  const defaultTech = document.getElementById('technik').value || 'VMAT';
+  auto.phasenFraktionen.forEach(fx => addPhaseRow(fx, defaultTech, false));
+  manualPhasesToggle.checked = true;
+  phasenEditor.classList.remove('hidden');
+  runSimulation();
+});
+
+/* Assistant de volumes */
+function addAssistantVolumen(starttag = 1, fraktionen = 10, planCT = true, planPlan = true, planSim = true){
+  assistantVolumenCount++;
+  const id = assistantVolumenCount;
+  const el = document.createElement('div');
+  el.className = 'grid grid-cols-12 gap-2 items-center';
+  el.innerHTML = `
+    <label class="font-medium text-[color:var(--text-300)] col-span-3">Volume ${id}</label>
+    <input type="number" name="assistant-start" value="${starttag}"
+      class="block w-full bg-[color:var(--bg-700)] border border-[color:var(--bg-700)] rounded-md shadow-sm p-2 col-span-2 text-center text-white brand-focus" placeholder="Jour">
+    <input type="number" name="assistant-fraktionen" value="${fraktionen}"
+      class="block w-full bg-[color:var(--bg-700)] border border-[color:var(--bg-700)] rounded-md shadow-sm p-2 col-span-2 text-center text-white brand-focus" placeholder="Fx">
+    <div class="col-span-5 flex flex-wrap gap-2 items-center plan-checkboxes">
+      <input type="checkbox" name="assistant-plan-ct" id="plan-ct-${id}" ${planCT ? 'checked' : ''} class="hidden"><label for="plan-ct-${id}">CT</label>
+      <input type="checkbox" name="assistant-plan-plan" id="plan-plan-${id}" ${planPlan ? 'checked' : ''} class="hidden"><label for="plan-plan-${id}">Plan</label>
+      <input type="checkbox" name="assistant-plan-sim" id="plan-sim-${id}" ${planSim ? 'checked' : ''} class="hidden"><label for="plan-sim-${id}">Sim</label>
+    </div>`;
+  assistantVolumenContainer.appendChild(el);
+}
+
+document.getElementById('add-assistant-volumen').addEventListener('click', ()=>{
+  const lastStart = assistantVolumenContainer.querySelector('input[name="assistant-start"]:last-of-type');
+  const lastFx    = assistantVolumenContainer.querySelector('input[name="assistant-fraktionen"]:last-of-type');
+  let newStart = 1;
+  if(lastStart && lastFx) newStart = (parseInt(lastStart.value)||0) + (parseInt(lastFx.value)||0);
+  addAssistantVolumen(newStart, 10, true, true, true);
+  runSimulation();
+});
+document.getElementById('remove-assistant-volumen').addEventListener('click', ()=>{
+  if(assistantVolumenCount>1){
+    assistantVolumenContainer.removeChild(assistantVolumenContainer.lastChild);
+    assistantVolumenCount--;
+    runSimulation();
+  }
+});
+
+/* Réactif */
+document.getElementById('generate-plan').addEventListener('click', ()=>{ derivePhasesFromVolumes(); runSimulation(); });
+document.getElementById('scenario-form').addEventListener('submit', (e)=>{ e.preventDefault(); runSimulation(); });
+document.getElementById('technik').addEventListener('change', runSimulation);
+document.getElementById('prefer-srt').addEventListener('change', runSimulation);
+assistantVolumenContainer.addEventListener('change', runSimulation);
+phasenContainer.addEventListener('change', runSimulation);
+
+/* ======= Helpers ======= */
+function getAssistantData(){
+  const startInputs = document.querySelectorAll('input[name="assistant-start"]');
+  const fxInputs    = document.querySelectorAll('input[name="assistant-fraktionen"]');
+  const ctInputs    = document.querySelectorAll('input[name="assistant-plan-ct"]');
+  const planInputs  = document.querySelectorAll('input[name="assistant-plan-plan"]');
+  const simInputs   = document.querySelectorAll('input[name="assistant-plan-sim"]');
+  const data = [];
+  for(let i=0;i<startInputs.length;i++){
+    const start      = parseInt(startInputs[i].value)||1;
+    const fraktionen = parseInt(fxInputs[i].value)||1;
+    data.push({
+      start,
+      ende: start + fraktionen - 1,
+      fraktionen,
+      requiresCT:  ctInputs[i].checked,
+      requiresPlan:planInputs[i].checked,
+      requiresSim: simInputs[i].checked
+    });
+  }
+  return data;
+}
+
+/* Déduire automatiquement les phases depuis les volumes */
+function derivePhasesFromVolumes(){
+  const vols = getAssistantData();
+  if (vols.length===0) return { phasenFraktionen:[], phaseStarts:new Set([1]), maxEnd:0 };
+
+  let maxEndDate = 0;
+  const phaseStartDays = new Set([1]);
+  vols.forEach(v=>{
+    if (v.ende > maxEndDate) maxEndDate = v.ende;
+    if (v.requiresCT || v.requiresPlan || v.requiresSim) phaseStartDays.add(v.start);
+  });
+
+  const sorted = [...phaseStartDays].sort((a,b)=>a-b);
+  const phasenFraktionen = [];
+  for(let i=0;i<sorted.length;i++){
+    const s = sorted[i];
+    const e = (i+1<sorted.length) ? sorted[i+1]-1 : maxEndDate;
+    const fx = e - s + 1;
+    if(fx>0) phasenFraktionen.push(fx);
+  }
+  return { phasenFraktionen, phaseStarts:phaseStartDays, maxEnd:maxEndDate };
+}
+
+/* ======= Sessions (technique & SRT par phase) ======= */
+function generateTardocSessions(params){
+  const sessions=[]; const vols = params.volumenPlan;
+  const phases = params.phases; // [{fx, technik, srt}]
+  const totalFx = phases.reduce((a,p)=>a+(p.fx||0),0);
+  if (totalFx<=0) return [];
+
+  let globalDay = 1;
+  for (const phase of phases){
+    const fxInPhase = parseInt(phase.fx)||0;
+    const isSRT = !!phase.srt;
+    const phaseTech = phase.technik || 'VMAT';
+
+    for(let i=0;i<fxInPhase;i++){
+      const dayInPhase = i+1;
+      const s = { day:globalDay, codes:new Set() };
+
+      const active = vols.filter(v => globalDay >= v.start && globalDay <= v.ende);
+      const startingToday = vols.filter(v => v.start === globalDay);
+
+      if (active.length>0){
+        if (phaseTech==='VMAT'){ s.codes.add('C00.BD.0090'); for(let v=2; v<=active.length; v++) s.codes.add('C00.BD.0110'); }
+        else { s.codes.add('C00.BD.0010'); for(let v=2; v<=active.length; v++) s.codes.add('C00.BD.0050'); }
+      }
+
+      if (dayInPhase===1){
+        s.codes.add('C00.BA.0110'); s.codes.add('C00.BA.0120'); // nouveau plan
+        s.codes.add('C00.BB.0020'); // contrôle de physique
+        active.forEach(()=> s.codes.add('C00.BB.0080')); // dosimétrie (par phase & volume)
+
+        startingToday.forEach(v=>{
+          if (v.requiresCT)  s.codes.add('C00.BA.0010');
+          const needsSim = startingToday.some(vv => vv.requiresSim);
+          if (needsSim) s.codes.add('C00.BA.0130');
+          if (v.requiresPlan){
+            if (isSRT){ s.codes.add('C00.BA.0100'); s.codes.add('C00.BA.0060'); }
+            else      { s.codes.add('C00.BA.0080'); }
+          }
+          s.codes.add('C00.BB.0010'); // contrôle des blocs
+        });
+
+        if (isSRT) s.codes.add('C00.BE.0010'); // SRT première mise en place
+      } else {
+        if (isSRT && dayInPhase>=2 && dayInPhase<=6) s.codes.add('C00.BE.0020'); // SRT jours 2–6
+      }
+
+      active.forEach(()=>{ s.codes.add('C00.BB.0040'); s.codes.add('C00.BB.0050'); s.codes.add('C00.BB.0060'); });
+
+      sessions.push({ day:globalDay, codes:Array.from(s.codes) });
+      globalDay++;
+    }
+  }
+
+  return sessions;
+}
+
+/* ======= Orchestration ======= */
+function runSimulation(){
+  // Phases (manuel vs auto)
+  let phases = [];
+  if (manualPhasesToggle.checked){
+    const fxInputs  = document.querySelectorAll('input[name="phase-fractions"]');
+    const techInputs= document.querySelectorAll('select[name="phase-tech"]');
+    const srtInputs = document.querySelectorAll('input[name="phase-srt"]');
+    for(let i=0;i<fxInputs.length;i++){
+      const fx = parseInt(fxInputs[i].value)||0;
+      if (fx>0){
+        phases.push({ fx, technik: techInputs[i].value, srt: srtInputs[i].checked });
+      }
+    }
+  } else {
+    const auto = derivePhasesFromVolumes();
+    const defaultTech = document.getElementById('technik').value || 'VMAT';
+    phases = auto.phasenFraktionen.map(fx => ({ fx, technik: defaultTech, srt:false }));
+  }
+
+  const assistantData = getAssistantData();
+
+  const params = { phases, volumenPlan: assistantData };
+  const settings = { preferSRT: document.getElementById('prefer-srt').checked };
+
+  const sessions = generateTardocSessions(params);
+  const results  = processSessions(sessions, settings);
+
+  displayResults(results);
+}
+
+/* ======= Choix des forfaits ======= */
+function processSessions(sessions, settings){
+  let totalCHF=0; const pauschalenCount={}; const dailyLog=[];
+  sessions.forEach(session=>{
+    const hasIrradiation = tardocTables['C00.70_40'].some(code => session.codes.includes(code)) ||
+                           tardocTables['C00.70_10'].some(code => session.codes.includes(code));
+    const hasPlanning = tardocTables['C00.70_0'].some(code => session.codes.includes(code)) ||
+                        tardocTables['C00.70_1'].some(code => session.codes.includes(code)) ||
+                        tardocTables['C00.70_2'].some(code => session.codes.includes(code));
+
+    if (!hasIrradiation && !hasPlanning){
+      dailyLog.push({ day:session.day, pauschale:{code:'---', chf:0}, reason:'Aucune prestation facturable' });
+      return;
+    }
+
+    const best = findBestPauschale(session, settings);
+    if(best){
+      totalCHF += best.chf;
+      pauschalenCount[best.code] = (pauschalenCount[best.code]||0)+1;
+      dailyLog.push({ day:session.day, pauschale:best, reason:best.reason||'' });
+    } else {
+      dailyLog.push({ day:session.day, pauschale:{code:'N/A', chf:0}, reason:'Aucun forfait correspondant trouvé' });
+    }
+  });
+
+  return { totalCHF, pauschalenCount, dailyLog };
+}
+
+function findBestPauschale(session, settings){
+  let applicable = JSON.parse(JSON.stringify(pauschalenMaster));
+
+  const hasSRT = session.codes.includes('C00.BE.0010') || session.codes.includes('C00.BE.0020');
+  if (!hasSRT) applicable = applicable.filter(p => !p.code.startsWith('C00.10'));
+  if (settings.preferSRT && hasSRT) applicable.forEach(p=>{ if(p.code.startsWith('C00.10')) p.priority += 100; });
+
+  applicable.sort((a,b)=>b.priority-a.priority);
+
+  for(const p of applicable){
+    if (checkRule(p.code, session.codes)){
+      if (hasSRT){
+        if (session.codes.includes('C00.BE.0010')) p.reason='SRT – première mise en place (début de phase) → C00.10C';
+        else if (session.codes.includes('C00.BE.0020')) p.reason='SRT – fraction suivante (jours 2–6)';
+        else p.reason='SRT privilégiée';
+      } else if (session.codes.includes('C00.BA.0110')) {
+        p.reason='Début de phase / Nouveau plan';
+      } else {
+        p.reason='Fraction standard';
+      }
+      return p;
+    }
+  }
+  return null;
+}
+
+function checkRule(pauschaleCode, sessionCodes){
+  const rule = ({
+    "C00.10C":{"logic":"AND","tables":["C00.70_10","C00.70_3"]},
+    "C00.10D":{"logic":"OR","groups":[
+      {"logic":"AND","tables":["C00.70_10","ANAST"]},
+      {"logic":"AND","tables":["C00.70_10","C00.70_0","C00.70_2"]}
+    ]},
+    "C00.10E":{"logic":"AND","tables":["C00.70_10","C00.70_0"]},
+    "C00.10F":{"logic":"AND","tables":["C00.70_10","C00.70_2"]},
+    "C00.10G":{"logic":"OR","groups":[
+      {"logic":"AND","tables":["C00.70_10","C00.70_1"]},
+      {"logic":"AND","tables":["C00.70_10"]}
+    ]},
+    "C00.40A":{"logic":"OR","groups":[
+      {"logic":"AND","tables":["C00.70_40","C00.70_3"]},
+      {"logic":"AND","tables":["C00.70_40","C00.70_0","C00.70_2"]}
+    ]},
+    "C00.40B":{"logic":"OR","groups":[
+      {"logic":"AND","tables":["C00.70_40","C00.70_0"]},
+      {"logic":"AND","tables":["C00.70_40","C00.70_2"]}
+    ]},
+    "C00.40C":{"logic":"AND","tables":["C00.70_40","C00.70_1"]},
+    "C00.40D":{"logic":"AND","tables":["C00.70_40"]},
+    "C00.61A":{"logic":"AND","tables":["C00.70_3"]},
+    "C00.61B":{"logic":"AND","tables":["C00.70_0","C00.70_2"]},
+    "C00.61C":{"logic":"OR","tables":["C00.70_0","C00.70_2"]},
+    "C00.61D":{"logic":"OR","tables":["C00.70_1","C00.71"]}
+  })[pauschaleCode];
+
+  if(!rule) return false;
+  const hasAny = (tbl)=> (tardocTables[tbl]||[]).some(c=>sessionCodes.includes(c));
+  if (rule.logic==='AND' && rule.tables) return rule.tables.every(hasAny);
+  if (rule.logic==='OR'  && rule.tables) return rule.tables.some(hasAny);
+  if (rule.logic==='OR'  && rule.groups) return rule.groups.some(g=>g.tables.every(hasAny));
+  return false;
+}
+
+/* ======= Affichage ======= */
+function displayResults(results){
+  const container = document.getElementById('results-container');
+  container.classList.remove('hidden');
+
+  document.getElementById('total-revenue').textContent =
+    results.totalCHF.toLocaleString('fr-CH', { style:'currency', currency:'CHF' });
+  document.getElementById('total-fraktionen').textContent =
+    results.dailyLog.filter(l => l.pauschale.chf > 0).length;
+
+  const summary = document.getElementById('pauschalen-summary');
+  summary.innerHTML='';
+  const sorted = Object.entries(results.pauschalenCount).sort((a,b)=>{
+    const pA = pauschalenMaster.find(p=>p.code===a[0]); const pB = pauschalenMaster.find(p=>p.code===b[0]);
+    return pB.priority - pA.priority;
+  });
+  if(sorted.length>0){
+    const ul=document.createElement('ul'); ul.className='list-disc list-inside bg-[color:var(--bg-700)] p-4 rounded-lg';
+    sorted.forEach(([code,count])=>{
+      const info=pauschalenMaster.find(p=>p.code===code);
+      const li=document.createElement('li');
+      li.innerHTML = `<span class="font-semibold text-[color:var(--brand-blue)]">${count}× ${code}</span> : ${info.title} <span class="brand-muted">(${(count*info.chf).toLocaleString('fr-CH')} CHF)</span>`;
+      ul.appendChild(li);
+    });
+    summary.appendChild(ul);
+  } else {
+    summary.textContent='Aucun forfait n’a pu être attribué.';
+  }
+
+  const log = document.getElementById('daily-log');
+  log.innerHTML='';
+  results.dailyLog.forEach(row=>{
+    const tr=document.createElement('tr');
+    tr.className='border-b border-[color:var(--bg-700)] hover:bg-[color:var(--bg-800)]';
+    tr.innerHTML = `
+      <td class="p-2">${row.day}</td>
+      <td class="p-2 font-medium">${row.pauschale.code}</td>
+      <td class="p-2 text-right">${row.pauschale.chf>0 ? row.pauschale.chf.toFixed(2) : ''}</td>
+      <td class="p-2 brand-muted">${row.reason}</td>`;
+    log.appendChild(tr);
+  });
+}
+
+/* ======= Initialisation ======= */
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Volumes (exemples)
+  addAssistantVolumen(1, 10, true, true, true);
+  addAssistantVolumen(11, 10, true, true, true);
+
+  // Préparer l’éditeur de phases (masqué tant que la bascule n’est pas activée)
+  addPhaseRow(10, 'VMAT', false);
+  addPhaseRow(10, 'VMAT', true);  // ex.: 2e phase SRT
+  document.getElementById('manual-phases').checked = false;
+  phasenEditor.classList.add('hidden');
+
+  runSimulation();
+});
+</script>
+</body>
+</html>
