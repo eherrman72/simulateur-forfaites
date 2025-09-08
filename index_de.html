@@ -39,7 +39,7 @@
       <div class="flex justify-center">
         <div class="inline-flex items-center bg-white/95 rounded-xl px-4 sm:px-5 py-3 shadow">
           <img
-            src="file:///C:/Users/Herrmann/PycharmProjects/Tarmed_Tardoc_Simulation/Tabellen%20Tool%20Berechnung%20Pauschalen/Logo_ROZ_text_cmyk.jpg"
+            src="./assets/Logo_ROZ_text_cmyk.jpg"
             alt="Radio-Onkologiezentrum Biel–Seeland–Berner Jura"
             class="max-h-20 sm:max-h-24 object-contain"
           />
@@ -365,7 +365,7 @@ function getAssistantData(){
   return data;
 }
 
-/* Auto-Phasen aus Volumen ableiten (wie früher) */
+/* Auto-Phasen aus Volumen ableiten */
 function derivePhasesFromVolumes(){
   const vols = getAssistantData();
   if (vols.length===0) return { phasenFraktionen:[], phaseStarts:new Set([1]), maxEnd:0 };
@@ -405,26 +405,21 @@ function generateTardocSessions(params){
       const dayInPhase = i+1;
       const s = { day:globalDay, codes:new Set() };
 
-      // aktive Volumina & startende heute
       const active = vols.filter(v => globalDay >= v.start && globalDay <= v.ende);
       const startingToday = vols.filter(v => v.start === globalDay);
 
-      // Bestrahlung pro aktivem Volumen (Technik pro Phase)
       if (active.length>0){
         if (phaseTech==='VMAT'){ s.codes.add('C00.BD.0090'); for(let v=2; v<=active.length; v++) s.codes.add('C00.BD.0110'); }
         else { s.codes.add('C00.BD.0010'); for(let v=2; v<=active.length; v++) s.codes.add('C00.BD.0050'); }
       }
 
-      // Phasenstart → Plan/Sim/CT + Physik + Dosimetrie
       if (dayInPhase===1){
-        s.codes.add('C00.BA.0110'); s.codes.add('C00.BA.0120'); // neuer Plan
-        s.codes.add('C00.BB.0020'); // Physikkontrolle
-        active.forEach(()=> s.codes.add('C00.BB.0080')); // Dosimetrie (pro Phase & Volumen)
+        s.codes.add('C00.BA.0110'); s.codes.add('C00.BA.0120');
+        s.codes.add('C00.BB.0020');
+        active.forEach(()=> s.codes.add('C00.BB.0080'));
 
-        // Vorbereitungen für Volumen, die heute starten
         startingToday.forEach(v=>{
           if (v.requiresCT)  s.codes.add('C00.BA.0010');
-          // Simulation (erstes Volumen der Phase) – nur als Trigger nötig
           const needsSim = startingToday.some(vv => vv.requiresSim);
           if (needsSim) s.codes.add('C00.BA.0130');
 
@@ -432,17 +427,14 @@ function generateTardocSessions(params){
             if (isSRT){ s.codes.add('C00.BA.0100'); s.codes.add('C00.BA.0060'); }
             else      { s.codes.add('C00.BA.0080'); }
           }
-          s.codes.add('C00.BB.0010'); // Blockkontrolle
+          s.codes.add('C00.BB.0010');
         });
 
-        // SRT-Ersteinstellung am Phasenstart (phase-spezifisch)
         if (isSRT) s.codes.add('C00.BE.0010');
       } else {
-        // Tage 2–6: SRT-Folgefraktion (phase-spezifisch)
         if (isSRT && dayInPhase>=2 && dayInPhase<=6) s.codes.add('C00.BE.0020');
       }
 
-      // je Fraktion & Volumen: Bildgebung/Überwachung
       active.forEach(()=>{ s.codes.add('C00.BB.0040'); s.codes.add('C00.BB.0050'); s.codes.add('C00.BB.0060'); });
 
       sessions.push({ day:globalDay, codes:Array.from(s.codes) });
@@ -455,7 +447,6 @@ function generateTardocSessions(params){
 
 /* ======= Simulation orchestrieren ======= */
 function runSimulation(){
-  // 1) Phasen bestimmen
   let phases = [];
   if (manualPhasesToggle.checked){
     const fxInputs  = document.querySelectorAll('input[name="phase-fractions"]');
@@ -477,17 +468,14 @@ function runSimulation(){
     phases = auto.phasenFraktionen.map(fx => ({ fx, technik: defaultTech, srt:false }));
   }
 
-  // 2) Volumina einsammeln
   const assistantData = getAssistantData();
 
-  // 3) Sessions generieren
   const params = { phases, volumenPlan: assistantData };
   const settings = { preferSRT: document.getElementById('prefer-srt').checked };
 
   const sessions = generateTardocSessions(params);
   const results  = processSessions(sessions, settings);
 
-  // 4) Ergebnis anzeigen
   displayResults(results);
 }
 
@@ -495,7 +483,6 @@ function runSimulation(){
 function processSessions(sessions, settings){
   let totalCHF=0; const pauschalenCount={}; const dailyLog=[];
   sessions.forEach(session=>{
-    // „irgendwas da?“ (Plan/Bestrahlung)
     const hasIrradiation = tardocTables['C00.70_40'].some(code => session.codes.includes(code)) ||
                            tardocTables['C00.70_10'].some(code => session.codes.includes(code));
     const hasPlanning = tardocTables['C00.70_0'].some(code => session.codes.includes(code)) ||
@@ -523,7 +510,6 @@ function processSessions(sessions, settings){
 function findBestPauschale(session, settings){
   let applicable = JSON.parse(JSON.stringify(pauschalenMaster));
 
-  // SRT-Filter: ohne BE.0010/BE.0020 keine C00.10x
   const hasSRT = session.codes.includes('C00.BE.0010') || session.codes.includes('C00.BE.0020');
   if (!hasSRT) applicable = applicable.filter(p => !p.code.startsWith('C00.10'));
   if (settings.preferSRT && hasSRT) applicable.forEach(p=>{ if(p.code.startsWith('C00.10')) p.priority += 100; });
@@ -629,13 +615,11 @@ function displayResults(results){
 
 /* ======= Initial ======= */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Volumen (Beispiel)
   addAssistantVolumen(1, 10, true, true, true);
   addAssistantVolumen(11, 10, true, true, true);
 
-  // Phasen-Editor vorbereiten (sichtbar erst, wenn Toggle an)
   addPhaseRow(10, 'VMAT', false);
-  addPhaseRow(10, 'VMAT', true);  // Beispiel: 2. Phase SRT
+  addPhaseRow(10, 'VMAT', true);
   document.getElementById('manual-phases').checked = false;
   phasenEditor.classList.add('hidden');
 
